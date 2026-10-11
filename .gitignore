@@ -1,0 +1,7 @@
+*.h5
+*.npz
+*.csv
+*.png
+__pycache__/
+*_results*/
+catalog_folder/
