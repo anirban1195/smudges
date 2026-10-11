@@ -5,8 +5,10 @@ Experiment 1 (SMUDGes): structural parameter regression from frozen AION-1
 embeddings.
 
   1. Load table2.dat (bias-corrected truths, VC==0, size cut) and join to the
-     512x512 griz H5 by SMDG name; centre-crop 480, bin 5x5 -> 96x96; drop
-     sources with an empty / mostly-zero band.
+     512x512 griz H5 by SMDG name; keep Re_corr <= --max-reff; centre-crop
+     480 and bin 5x5 -> 96x96 (--bin-factor 5), or take the unbinned central
+     96x96 (--bin-factor 1); drop sources with an empty / mostly-zero band
+     (same sources dropped for every bin factor).
   2. Extract (or load cached) frozen AION-1 embeddings.
   3. 70/30 train/test split.
   4. Train BOTH a linear head and a 2-layer(256) MLP head to predict
@@ -53,7 +55,13 @@ def parse_args():
     p.add_argument("--table2", default=TABLE2_DEFAULT)
     p.add_argument("--h5-path", default=H5_DEFAULT)
     p.add_argument("--model-path", default="/home/duttaa/aion/aion-base")
-    p.add_argument("--out-dir", default="./exp1_results_smudges")
+    p.add_argument("--out-dir", default=None,
+                    help="Default: ./exp1_results_smudges_x<bin-factor>")
+    p.add_argument("--bin-factor", type=int, default=5, choices=[1, 2, 3, 4, 5],
+                    help="5 = 480 crop binned 5x5 (1.31 arcsec/px); 1 = unbinned "
+                         "central 96x96 (25 arcsec, 0.262 arcsec/px).")
+    p.add_argument("--max-reff", type=float, default=6.0,
+                    help="Keep only sources with Re_corr <= this (arcsec).")
     p.add_argument("--bin-mode", choices=["sum", "mean"], default="sum",
                     help="How the 5x5 bins are combined (sum conserves flux; "
                          "mean keeps surface brightness per native pixel).")
@@ -70,11 +78,11 @@ def parse_args():
 
 def main():
     args = parse_args()
-    out_dir = Path(args.out_dir)
+    out_dir = Path(args.out_dir or f"./exp1_results_smudges_x{args.bin_factor}")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     df, fluxes, dropped = load_sample(
-        args.table2, args.h5_path, args.bin_mode,
+        args.table2, args.h5_path, args.bin_mode, args.bin_factor, args.max_reff,
         force_recompute=args.force_recompute,
     )
     dropped.to_csv(out_dir / "dropped_missing_band.csv", index=False)
@@ -85,7 +93,7 @@ def main():
     y = df[list(TRUTH_COLS.values())].to_numpy(dtype=np.float32)
 
     embeddings = get_or_extract_embeddings(
-        fluxes, df["name"].to_numpy(), out_dir / f"embeddings_{args.bin_mode}.npz",
+        fluxes, df["name"].to_numpy(), out_dir / f"embeddings_{args.bin_mode}_x{args.bin_factor}.npz",
         args.model_path, args.device, batch_size=args.batch_size,
         force_recompute=args.force_recompute,
     )

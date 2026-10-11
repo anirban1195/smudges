@@ -70,15 +70,16 @@ _TABLE2_COLS = {
 _CORRECTED = {"Re": "Re_corr", "ba": "ba_corr", "n": "n_corr", "mu0g": "mu0g_corr"}
 
 
-def load_table2(path=TABLE2_DEFAULT):
+def load_table2(path=TABLE2_DEFAULT, max_re_arcsec=None):
     """
     Read table2.dat and return one row per usable source with bias-corrected
     Re (arcsec), b/a, Sersic n and mu0g, plus a symmetric 1-sigma per
     parameter (<raw>_sig = mean(|upper|, |lower|)).
 
     Dropped: VC != 0 (visually rejected), any missing/sentinel value or bias,
-    non-positive corrected Re/n/b-a, and Re_corr large enough that the
-    96x96 binned cutout is narrower than MIN_RE_PER_CUTOUT * Re.
+    non-positive corrected Re/n/b-a, and Re_corr > max_re_arcsec (default:
+    large enough that the 96x96 binned cutout is narrower than
+    MIN_RE_PER_CUTOUT * Re).
     """
     df = pd.read_fwf(
         path, colspecs=[(a - 1, b) for a, b in _TABLE2_COLS.values()],
@@ -101,7 +102,7 @@ def load_table2(path=TABLE2_DEFAULT):
     df = df[(df["Re_corr"] > 0) & (df["n_corr"] > 0) & (df["ba_corr"] > 0)]
     print(f"  after requiring corrected Re, n, b/a > 0: {len(df)}")
 
-    max_re = CUTOUT_ARCSEC / MIN_RE_PER_CUTOUT
+    max_re = max_re_arcsec or CUTOUT_ARCSEC / MIN_RE_PER_CUTOUT
     df = df[df["Re_corr"] <= max_re]
     print(f"  after size cut (Re_corr <= {max_re:.2f} arcsec): {len(df)}")
 
@@ -129,19 +130,24 @@ def load_h5_names(h5_path):
     return names
 
 
-def _bin(x, bin_mode):
+def _bin(x, bin_mode, bin_factor):
     n, c = x.shape[:2]
-    x = x.reshape(n, c, OUT_SIZE, BIN_FACTOR, OUT_SIZE, BIN_FACTOR)
+    x = x.reshape(n, c, OUT_SIZE, bin_factor, OUT_SIZE, bin_factor)
     if bin_mode == "sum":
         return x.sum(axis=(3, 5), dtype=np.float32)
     return x.mean(axis=(3, 5), dtype=np.float32)
 
 
-def get_or_build_binned(h5_path, bin_mode, force_recompute=False, chunk=32):
+def get_or_build_binned(h5_path, bin_mode, bin_factor=BIN_FACTOR,
+                        force_recompute=False, chunk=32):
     """
-    Central-crop every H5 cutout to CROP_SIZE and bin BIN_FACTOR x BIN_FACTOR
-    (sum or mean) to (4, 96, 96). Also records, per source and band, the
-    fraction of crop pixels that are exactly 0 or non-finite ("missing";
+    Central-crop every H5 cutout to OUT_SIZE * bin_factor pixels and bin
+    bin_factor x bin_factor (sum or mean) to (4, 96, 96). bin_factor=5 is
+    the 480 -> 96 binned case; bin_factor=1 is the unbinned central 96x96
+    (25 arcsec) at native 0.262 arcsec/px. Also records, per source and
+    band, the fraction of pixels in the central CROP_SIZE x CROP_SIZE region
+    that are exactly 0 or non-finite -- always that same 480 region, so every
+    bin_factor sees the identical set of dropped sources ("missing";
     the downloader turned NaN into 0, and real sky-subtracted pixels are
     essentially never exactly 0.0). A band with zero variance counts as
     fully missing. The result is cached next to the H5 file.
@@ -149,9 +155,10 @@ def get_or_build_binned(h5_path, bin_mode, force_recompute=False, chunk=32):
     Returns (names, binned (N,4,96,96), missing_frac (N,4)).
     """
     import h5py
-    assert bin_mode in ("sum", "mean")
+    assert bin_mode in ("sum", "mean") and 1 <= bin_factor <= BIN_FACTOR
     h5_path = Path(h5_path)
-    cache_path = h5_path.with_name(f"{h5_path.stem}_binned_{bin_mode}.npz")
+    suffix = "" if bin_factor == BIN_FACTOR else f"_x{bin_factor}"
+    cache_path = h5_path.with_name(f"{h5_path.stem}_binned_{bin_mode}{suffix}.npz")
     names = load_h5_names(h5_path)
 
     if cache_path.exists() and not force_recompute:
@@ -161,7 +168,9 @@ def get_or_build_binned(h5_path, bin_mode, force_recompute=False, chunk=32):
             return names, cache["binned"], cache["missing"]
         print(f"  cache {cache_path} is out of date with the H5 -- rebuilding")
 
-    print(f"  building {bin_mode}-binned cubes ({CROP_SIZE} -> {OUT_SIZE}) ...")
+    crop = OUT_SIZE * bin_factor
+    off = (CROP_SIZE - crop) // 2
+    print(f"  building {bin_mode}-binned cubes ({crop} -> {OUT_SIZE}, x{bin_factor}) ...")
     with h5py.File(h5_path, "r") as h5f:
         dset = h5f["fluxes"]
         N, C, H, W = dset.shape
@@ -176,7 +185,7 @@ def get_or_build_binned(h5_path, bin_mode, force_recompute=False, chunk=32):
             x = np.where(finite, x, 0.0)
             miss[x.reshape(e - s, C, -1).std(axis=2) == 0] = 1.0
             missing[s:e] = miss
-            binned[s:e] = _bin(x, bin_mode)
+            binned[s:e] = _bin(x[:, :, off:off + crop, off:off + crop], bin_mode, bin_factor)
             if (s // chunk) % 20 == 0:
                 print(f"    {e}/{N}")
 
@@ -185,7 +194,8 @@ def get_or_build_binned(h5_path, bin_mode, force_recompute=False, chunk=32):
     return names, binned, missing
 
 
-def load_sample(table_path, h5_path, bin_mode, max_missing_frac=MAX_MISSING_FRAC,
+def load_sample(table_path, h5_path, bin_mode, bin_factor=BIN_FACTOR,
+                max_re_arcsec=None, max_missing_frac=MAX_MISSING_FRAC,
                 force_recompute=False):
     """
     table2 (filtered, bias-corrected) joined by SMDG name to the binned H5
@@ -194,9 +204,9 @@ def load_sample(table_path, h5_path, bin_mode, max_missing_frac=MAX_MISSING_FRAC
 
     Returns (df, fluxes (N,4,96,96), dropped_df) aligned row-for-row.
     """
-    table = load_table2(table_path)
+    table = load_table2(table_path, max_re_arcsec)
     h5_names, binned, missing = get_or_build_binned(
-        h5_path, bin_mode, force_recompute=force_recompute)
+        h5_path, bin_mode, bin_factor, force_recompute=force_recompute)
 
     pos_lookup = {n: i for i, n in enumerate(h5_names)}
     table["_pos"] = table["name"].map(pos_lookup)

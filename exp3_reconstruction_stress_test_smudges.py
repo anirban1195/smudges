@@ -28,7 +28,7 @@ import torch
 import matplotlib.pyplot as plt
 
 from aion_smudges_common import (
-    H5_DEFAULT, TABLE2_DEFAULT, BANDS, BINNED_SCALE, load_sample,
+    H5_DEFAULT, TABLE2_DEFAULT, BANDS, PIXEL_SCALE, load_sample,
     plot_metric_heatmaps,
 )
 
@@ -37,7 +37,13 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--table2", default=TABLE2_DEFAULT)
     p.add_argument("--h5-path", default=H5_DEFAULT)
-    p.add_argument("--out-dir", default="./exp3_results_smudges")
+    p.add_argument("--out-dir", default=None,
+                    help="Default: ./exp3_results_smudges_x<bin-factor>")
+    p.add_argument("--bin-factor", type=int, default=5, choices=[1, 2, 3, 4, 5],
+                    help="5 = 480 crop binned 5x5 (1.31 arcsec/px); 1 = unbinned "
+                         "central 96x96 (25 arcsec, 0.262 arcsec/px).")
+    p.add_argument("--max-reff", type=float, default=6.0,
+                    help="Keep only sources with Re_corr <= this (arcsec).")
     p.add_argument("--bin-mode", choices=["sum", "mean"], default="mean")
     p.add_argument("--batch-size", type=int, default=32)
     p.add_argument("--n-bins", type=int, default=3)
@@ -50,6 +56,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    args.out_dir = args.out_dir or f"./exp3_results_smudges_x{args.bin_factor}"
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     cache_path = out_dir / f"reconstruction_results_cache_{args.bin_mode}.csv"
@@ -70,7 +77,7 @@ def compute_reconstruction_results(args):
     from aion.modalities import LegacySurveyImage
 
     matched_df, fluxes, dropped = load_sample(
-        args.table2, args.h5_path, args.bin_mode,
+        args.table2, args.h5_path, args.bin_mode, args.bin_factor, args.max_reff,
         force_recompute=args.force_recompute,
     )
     dropped.to_csv(Path(args.out_dir) / "dropped_missing_band.csv", index=False)
@@ -83,7 +90,7 @@ def compute_reconstruction_results(args):
     codec_manager = CodecManager(device=args.device)
 
     mug = matched_df["mu0g_corr"].to_numpy()
-    rhlg = (matched_df["Re_corr"] / BINNED_SCALE).to_numpy()  # binned pixels
+    rhlg = (matched_df["Re_corr"] / (PIXEL_SCALE * args.bin_factor)).to_numpy()  # image pixels
     n_sersic = matched_df["n_corr"].to_numpy()
 
     records = []
@@ -137,7 +144,7 @@ def make_plots(df, args, out_dir):
     plot_metric_heatmaps(
         df, x_col="rhlg", y_col="mug", metric_cols=["recon_mse"], n_bins=args.n_bins,
         save_path=str(out_dir / f"heatmaps_rhlg_vs_mug_{tag}.png"),
-        x_label="Effective radius (binned pixels, 1.31 arcsec/px)",
+        x_label=f"Effective radius (image pixels, {PIXEL_SCALE * args.bin_factor:.2f} arcsec/px)",
         y_label="Central surface brightness mu0g (mag/arcsec^2)",
     )
     plot_metric_heatmaps(
@@ -150,7 +157,7 @@ def make_plots(df, args, out_dir):
     # mask area vs MSE scatter
     fig, ax = plt.subplots(figsize=(7, 5))
     ax.scatter(df["mask_area"], df["recon_mse"], alpha=0.3, s=5)
-    ax.set_xlabel("Mask Area (binned pixels)")
+    ax.set_xlabel("Mask Area (image pixels)")
     ax.set_ylabel("Reconstruction MSE")
     ax.set_title("Reconstruction Error vs. Aperture Size")
     fig.tight_layout()
