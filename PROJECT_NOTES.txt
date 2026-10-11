@@ -1,0 +1,198 @@
+SMUDGes x AION-1: project notes
+Written 2026-10-11. Numbers below come from the runs in this folder
+(single train/test split, seed 42, one run each -- no error bars yet).
+
+================================================================
+1. WHAT WE ARE TRYING TO DO
+================================================================
+Question: how well do frozen AION-1 embeddings of Legacy Survey cutouts
+recover the structural parameters of ultra-diffuse galaxy (UDG) candidates
+from the SMUDGes catalog (Zaritsky+ 2023, ApJS 267, 27; catalog_folder/)?
+This repeats the earlier LSBG (DES) benchmark experiments (exp1 regression,
+exp3 tokenizer reconstruction) on a new dataset where the reference truth is
+the catalog table2.dat. (exp2, morphology classification, is skipped: the
+catalog has no morphology labels.)
+
+Truth values: Re (arcsec), Sersic n, b/a and central surface brightness
+mu0g, all BIAS-CORRECTED as value - bias (ReadMe convention). Dropped: VC != 0
+(visually rejected), missing (-99.99) values/biases, non-positive corrected
+Re/n/b-a. The catalog's own median 1-sigma is reported next to our RMSE as a
+reference floor.
+
+The size problem: AION's image tokenizer works on 96x96 images, but SMUDGes
+galaxies have Re of ~5-20 arcsec (0.262 arcsec/px native), i.e. 20-80 native
+pixels. A native 96x96 crop is only 25 arcsec across (~4 Re at Re=6").
+Two options are being compared:
+  - binned  : central 480x480 crop, 5x5 bins (1.31 arcsec/px) -> 96x96,
+              126 arcsec across (>= 6 Re for Re <= ~21")
+  - unbinned: central 96x96 native pixels (25 arcsec across)
+  - intermediate factors 2 (192 crop, 0.52"/px, 50" wide) and 4 (384 crop,
+    1.05"/px, 100" wide) to see where resolution and field of view trade off.
+Bins are SUMMED (sum was found to work better than mean; sum conserves total
+flux).  Heads: linear and 2-layer MLP (256 hidden); 256-MLP is the preferred
+head, though in practice it is ~equal to linear here.
+
+================================================================
+2. DATA / PIPELINE
+================================================================
+download_smudges_cutouts.py : Legacy Survey cutout service, layer ls-dr10,
+    512x512 px, 0.262"/px, bands griz, at each table2.dat RA/Dec. Resumable,
+    HDF5 (smudges_ls_dr10_512.h5). 2600 of 7070 sources downloaded so far.
+aion_smudges_common.py   : table2 reader + bias correction; H5 -> crop -> bin
+    (cached .npz next to the H5); missing-band check; embedding extraction
+    (cached); heads/metrics/heatmaps (copied from aion_lsbg_common.py).
+exp1_structural_regression_smudges.py     : regression from embeddings
+exp3_reconstruction_stress_test_smudges.py: tokenizer encode/decode MSE inside
+    a 2*Re disc (aperture scales with Re in image pixels)
+viz_binning_examples_smudges.py           : raw vs binned cutout pictures
+Flags: --bin-factor {1,2,3,4,5}  --max-reff <arcsec> (default 6.0)
+       exp3 only: --aperture-re (default 2)  --max-aperture-arcsec (default none)
+       --bin-mode {sum,mean}     (default sum in exp1 and exp3)
+Missing-band filter: a source is dropped if ANY band has >1% exactly-zero /
+non-finite pixels in the central 480x480 (always that same region, so every
+bin factor sees the identical sample). 413 of 1888 matched sources are dropped
+with Re_corr <= 10"; the bulk are fully empty i-band (DR10 has no i coverage
+over much of the field).
+
+Sanity checks done (sample Re_corr <= 10", 1475 sources, all four factors):
+  - all pixel values finite; exact-zero fraction ~0; names unique
+  - stacked g+r+z image of the sample peaks at (47,47), flux-weighted
+    centroid within 0.15-0.3 px of the array centre (47.5): centred at all
+    factors (the small offset is the same at every factor; the stack of a
+    noisy sample is not precise below that)
+  - sum-binned cubes match a manual 5x5 sum of the raw H5 crop to 1e-5, and
+    total flux per band is conserved
+  - crops are symmetric about the cutout centre (offsets 16/48/144/192 px for
+    factors 5/4/2/1), and 96 is even so bins are symmetric about the centre
+  - NOT cleaned: bright foreground stars / neighbours are left in. Summed
+    pixel maxima reach ~1500 (x5) against a 99th percentile of ~1, i.e. a
+    few cutouts contain very bright objects. AION is trained on such fields
+    but they may affect individual objects.
+
+================================================================
+3. RESULTS SO FAR
+================================================================
+(a) Re_corr <= 6", binned (x5) vs unbinned (x1), 392 sources, 118 test:
+                  RMSE binned/unbinned      R2 binned/unbinned (MLP-256)
+    Re              0.206 / 0.193             0.01 / 0.14
+    n               0.206 / 0.154            -0.02 / 0.43
+    mu0g            0.401 / 0.251             0.52 / 0.81
+    b/a             0.110 / 0.116             0.51 / 0.46
+  Re is uninformative in that sample: Re_corr only spans ~5.3-6", so the
+  spread is smaller than the catalog 1-sigma (0.40") and R2 ~ 0.
+
+(b) Re_corr <= 10", 1475 sources (1032 train / 443 test), MLP-256,
+    sum binning.  Test-set spread of truth: Re 1.26", n 0.27, mu0g 0.68,
+    b/a 0.16.  RMSE (R2) by bin factor:
+                  x1             x2             x4             x5         catalog 1-sigma
+    Re (arcsec)   0.891 (0.50)   0.821 (0.58)   0.809 (0.59)   0.869 (0.53)   0.615
+    n             0.180 (0.54)   0.176 (0.56)   0.203 (0.42)   0.235 (0.22)   0.105
+    mu0g (mag)    0.268 (0.85)   0.262 (0.85)   0.345 (0.75)   0.411 (0.64)   0.180
+    b/a           0.114 (0.48)   0.082 (0.73)   0.092 (0.67)   0.103 (0.58)   0.050
+  Same runs, MAE / MSE (MSE = RMSE^2) / R2 for MLP-256:
+                x1               x2               x4               x5
+    Re    MAE .715 MSE .794  .639 .675  .649 .654  .685 .755
+    n     MAE .137 MSE .032  .131 .031  .154 .041  .178 .055
+    mu0g  MAE .202 MSE .072  .199 .069  .261 .119  .311 .169
+    b/a   MAE .091 MSE .013  .064 .007  .072 .008  .081 .011
+  (R2 as in the table above; linear-head values are in metrics.csv.)
+  Linear head gives nearly identical numbers (differences ~0.01-0.03 in RMSE,
+  slightly worse than the MLP in most cells).
+
+(c) exp3, same sample, tokenizer reconstruction MSE inside 2*Re (fractional:
+    error power / image power in the aperture), median over 1475 sources:
+        x1 0.556   x2 0.383   x4 0.414   x5 0.425
+    The error grows with mu0g: the faintest tertile (highest mu0g) is worst
+    at every factor (x1: 0.36 -> 0.55 -> 0.76 from brightest to faintest).
+    Errors of ~0.4-0.55 mean the reconstructions explain only about half the
+    in-aperture image power, because faint-galaxy images are noise-dominated.
+
+    More exp3 detail (same 1475 sources, mean / median / p90 of recon MSE):
+        x1 .533/.556/.871   x2 .415/.383/.731   x4 .433/.414/.762   x5 .450/.425/.798
+    Paired: x2 beats x1 for 84% of sources (mean diff 0.118 +- 0.005);
+    x2 vs x4 / x5 differ by only 0.02-0.04 (x2 better ~55% / 52% of sources).
+    ADOPTED SETTING: aperture = disc of radius 2*Re (as in the original LSBG
+    exp3), limited only by the image frame (48 px).  x2, x4, x5 all see the
+    same 2*Re patch of sky (median ~570 arcsec^2 at each).  Only x1 is limited
+    by its frame (12.4" radius): median 2*Re is 13.5", so the aperture is
+    clipped for 66% of sources, losing a median 15% of the area (mean 21%,
+    90th percentile 53%).  (The "median aperture 7211 px^2" figure is an AREA
+    in px^2 -- about 495 arcsec^2, the whole 96x96 frame's inscribed disc.)
+    This does not drive the x1 deficit: the x1 - x2 MSE gap is 0.18 for the
+    499 sources whose 2*Re fits in the frame and 0.13 for the 976 clipped
+    ones, i.e. LARGER when unclipped.
+
+(d) exp3 SENSITIVITY CHECK, not the adopted setting: aperture = 1.5*Re_corr
+    capped at 12" at every factor (25.2% of sources clipped; median radius
+    10.1"), so all factors, x1 included, see an identical sky region.  Same
+    1475 sources.  Recon MSE:
+                       x1     x2     x4     x5
+        mean          .523   .370   .324   .329
+        median        .530   .326   .279   .279
+        p90           .863   .694   .627   .633
+        median aperture area (img px^2)  4709  1185  293  185
+    Paired: x2 beats x1 for 90% of sources (+0.152 +- 0.004); x4 beats x2 for
+    69% (x2 - x4 = +0.047 +- 0.005); x4 vs x5 indistinguishable (-0.006 +-
+    0.002).  The ordering holds in every Re, mu0g and n tertile, and for
+    clipped (Re > 8") and unclipped sources alike.  Error again grows with
+    mu0g (faintest tertile: x1 .77, x2 .55, x4 .44, x5 .42).
+    x1 is still clearly the worst, confirming the x1 clamp is not the cause.
+    BUT the ranking among the binned factors flipped relative to 2*Re:
+    at 2*Re x2 was best (median x2 .383, x4 .414, x5 .425) while with this
+    smaller, capped aperture x4 ~ x5 (.279) beat x2 (.326).  So exp3's
+    ordering of x2/x4/x5 depends on the aperture; only "x1 is worst" is
+    robust.  (Cause not tested.  A sweep over 1, 1.5, 2 Re with and without
+    a cap would map it.)  The metric is error power / image power
+    and is noise-dominated for faint galaxies, so a lot of this is the
+    higher per-pixel S/N of binned images, not tokenizer quality as such.
+
+================================================================
+4. WHAT THIS SUGGESTS (tentative)
+================================================================
+ - Heavy binning (x5) hurts n and mu0g clearly (n R2 0.54 -> 0.22, mu0g RMSE
+   0.27 -> 0.41 going x1 -> x5). Heavy binning blurs the centre/profile shape.
+ - x1 and x2 are statistically close for n and mu0g; x2 is best or tied for
+   b/a, n and mu0g (exp1); x4 is marginally best for Re. For exp1 the best
+   compromise between resolution and field of view looks like factor 2
+   (0.52"/px, 50" wide). Re prefers wider field of view (x2/x4 over x1) as expected,
+   but the Re differences (0.81-0.89") are small relative to the sampling
+   noise at N=443, so not firm.
+ - Re is recovered with RMSE ~0.8-0.9" (R2 ~0.5-0.6); this is above the
+   catalog 1-sigma (0.6"), so there is room, but the catalog truth itself is
+   noisy at this level.
+ - exp1 and exp3 disagree on x1: exp3 (2 Re aperture) has x1 << x2 < x4 <
+   x5, while exp1's structural accuracy is best at x1/x2 and degrades at
+   x4/x5.  Unbinned images are noisier per pixel, so the tokenizer
+   reconstructs them worse, even though the embedding retains more
+   structural information.  x2 is best on exp3 among binned factors at the
+   adopted 2*Re aperture and best/tied in exp1; but see (d): the exp3
+   ordering of x2/x4/x5 is aperture dependent.
+ - Earlier worry that binning inflates arcsec-scale errors by ~5x (pixel-scale
+   floor) was not borne out for Re once the sample has a wide Re range.
+
+================================================================
+5. CAVEATS / OPEN ITEMS
+================================================================
+ - One 70/30 split, one seed. Early stopping uses the TEST set as validation
+   (inherited from exp1 of the LSBG suite) so scores are slightly optimistic.
+   Needs: several seeds or CV for error bars; a separate validation split.
+ - Only 2600 / 7070 sources downloaded; i-band missing for ~20% of those.
+ - Selection: catalog Re >= 5.3" and cuts at <=6"/<=10" make the Re range
+   narrow; R2 for Re is therefore depressed relative to a full-range sample.
+ - Mean pooling over tokens in the embedding discards position information.
+ - Bright stars/neighbours not masked.
+ - Cutouts are DR10 (ls-dr10); the catalog was measured on DR9 images.
+ - Untested: factor 3, larger Re (>10") where factor 5's wide field should
+   matter, sum vs mean re-check at x2, fine-tuning instead of frozen heads.
+
+================================================================
+6. WHERE THINGS ARE
+================================================================
+exp1_results_smudges_reff10_x{1,2,4,5}/   metrics.csv, predictions.csv,
+                                          heatmaps.png, embeddings_sum_x*.npz
+exp3_results_smudges_reff10_x{1,2,4,5}/   2*Re-aperture runs (adopted): cache csv + plots
+exp3_results_smudges_reff10_ap1.5_x{1,2,4,5}/  1.5 Re (cap 12") sensitivity runs
+exp1_results_smudges_x{1,5}/              the Re <= 6" runs in section 3a
+logs/                                     stdout of the runs above
+git: local repo, branch main; last commit adds --bin-factor/--max-reff
+(not pushed).  This file and logs/ are untracked.

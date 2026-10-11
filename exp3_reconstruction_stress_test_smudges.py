@@ -11,8 +11,11 @@ re-running to tweak a plot doesn't repeat GPU inference.
 Port of exp3_reconstruction_stress_test.py to SMUDGes:
   - images are the 96x96 binned cutouts (480 crop, 5x5 bin, 1.31 arcsec/px)
   - truths are the bias-corrected table2.dat values
-  - the reconstruction mask is a disc of radius 2 * Re_corr, with Re_corr
-    converted to BINNED pixels
+  - the reconstruction mask is a disc of radius --aperture-re * Re_corr
+    (default 2, as in the original), optionally capped at
+    --max-aperture-arcsec at EVERY bin factor; converted to image pixels.
+    Without a cap the disc is still limited by the image frame (48 px), which
+    matters only at --bin-factor 1 (12.4 arcsec)
   - the old fixed mask-area regimes (1000-2000, >7000 px) don't fit a 96x96
     frame of 4-8 px galaxies, so the histograms compare the lowest and
     highest TERTILES of mask area
@@ -44,7 +47,13 @@ def parse_args():
                          "central 96x96 (25 arcsec, 0.262 arcsec/px).")
     p.add_argument("--max-reff", type=float, default=6.0,
                     help="Keep only sources with Re_corr <= this (arcsec).")
-    p.add_argument("--bin-mode", choices=["sum", "mean"], default="mean")
+    p.add_argument("--bin-mode", choices=["sum", "mean"], default="sum")
+    p.add_argument("--aperture-re", type=float, default=2.0,
+                    help="Reconstruction aperture radius in units of Re_corr.")
+    p.add_argument("--max-aperture-arcsec", type=float, default=None,
+                    help="Optional aperture radius cap in arcsec, applied identically at "
+                         "every bin factor (12.4 arcsec is the largest disc in a native "
+                         "96x96). Default: no cap, only the image-frame clamp.")
     p.add_argument("--batch-size", type=int, default=32)
     p.add_argument("--n-bins", type=int, default=3)
     p.add_argument("--max-sources", type=int, default=None,
@@ -59,7 +68,7 @@ def main():
     args.out_dir = args.out_dir or f"./exp3_results_smudges_x{args.bin_factor}"
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    cache_path = out_dir / f"reconstruction_results_cache_{args.bin_mode}.csv"
+    cache_path = out_dir / f"reconstruction_results_cache_{args.bin_mode}_ap{args.aperture_re:g}.csv"
 
     if cache_path.exists() and not args.force_recompute:
         print(f"Loading cached reconstruction results from {cache_path}")
@@ -90,7 +99,14 @@ def compute_reconstruction_results(args):
     codec_manager = CodecManager(device=args.device)
 
     mug = matched_df["mu0g_corr"].to_numpy()
-    rhlg = (matched_df["Re_corr"] / (PIXEL_SCALE * args.bin_factor)).to_numpy()  # image pixels
+    pix_arcsec = PIXEL_SCALE * args.bin_factor
+    rhlg = (matched_df["Re_corr"] / pix_arcsec).to_numpy()  # image pixels
+    ap_arcsec = (args.aperture_re * matched_df["Re_corr"]).to_numpy()
+    if args.max_aperture_arcsec:
+        print(f"Aperture = {args.aperture_re:g} Re capped at {args.max_aperture_arcsec:g} arcsec: "
+              f"{(ap_arcsec > args.max_aperture_arcsec).mean():.1%} of sources clipped")
+        ap_arcsec = np.minimum(ap_arcsec, args.max_aperture_arcsec)
+    ap_px = ap_arcsec / pix_arcsec
     n_sersic = matched_df["n_corr"].to_numpy()
 
     records = []
@@ -105,8 +121,8 @@ def compute_reconstruction_results(args):
 
         B, C, H, W = image.flux.shape
         cy, cx = H // 2, W // 2
-        batch_rhlg = torch.tensor(rhlg[start:end], device=args.device)
-        h_box = torch.clamp((2.0 * batch_rhlg).view(-1, 1, 1), min=3.0, max=float(H // 2))
+        batch_ap = torch.tensor(ap_px[start:end], device=args.device)
+        h_box = torch.clamp(batch_ap.view(-1, 1, 1), min=3.0, max=float(H // 2))
         y, x = torch.meshgrid(
             torch.arange(H, device=args.device), torch.arange(W, device=args.device),
             indexing="ij",
@@ -124,6 +140,7 @@ def compute_reconstruction_results(args):
                 "mug": mug[start + i],
                 "rhlg": rhlg[start + i],
                 "reff_arcsec": matched_df["Re_corr"].iloc[start + i],
+                "aperture_arcsec": ap_arcsec[start + i],
                 "n": n_sersic[start + i],
                 "mask_area": mask_area[i],
                 "recon_mse": per_obj_mse[i],
