@@ -4,4 +4,3 @@
 *.png
 __pycache__/
 *_results*/
-catalog_folder/

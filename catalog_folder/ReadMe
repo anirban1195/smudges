@@ -1,0 +1,212 @@
+J/ApJS/267/27 SMUDGes V. The complete catalog of UDGs from DR9 (Zaritsky+, 2023)
+================================================================================
+Systematically Measuring Ultra-Diffuse Galaxies (SMUDGes).
+V. The complete SMUDGes catalog and the nature of ultradiffuse galaxies.
+    Zaritsky D., Donnerstein R., Dey A., Karunakaran A., Kadowaki J.,
+    Khim D.J., Spekkens K., Zhang H.
+   <Astrophys. J. Suppl. Ser., 267, 27 (2023)>
+   =2023ApJS..267...27Z
+================================================================================
+ADC_Keywords: Galaxies, photometry; Surveys; Galaxies, radius;
+              Photometry, ugriz; Velocity dispersion
+Keywords: Galaxy formation ; Galaxy evolution ; Galaxy properties ;
+          Low surface brightness galaxies
+
+Abstract:
+    We present the completed catalog of ultradiffuse galaxy (UDG)
+    candidates (7070 objects) from our search of the DR9 Legacy Survey
+    images, including distance and total mass estimates for 1529 and
+    1436 galaxies, respectively, that we provide and describe in detail.
+    From the sample with estimated distances, we obtain a sample of
+    585 UDGs ({mu}_0,g_>=24mag/arcsec^2^ and r_e_>=1.5kpc) over
+    20000 square degrees of sky in various environments. We conclude that
+    UDGs in our sample are limited to 10^10^<~M_h_/M_{sun}_<~10^11.5^ and
+    are on average a factor of 1.5-7 deficient in stars relative to the
+    general population of galaxies of the same total mass. That factor
+    increases with increasing galaxy size and mass up to a factor of ~10
+    when the total mass of the UDG increases beyond M_h_=10^11^M_{sun}_.
+    We do not find evidence that this factor has a dependence on the UDGs
+    large-scale environment.
+
+Description:
+    We report the results of our analysis of Data Release 9 (DR9) of the
+    northern portion of the Legacy Survey, which includes observations
+    obtained by the MOSAIC camera at the KPNO 4m telescope (MzLS, Mayall
+    z-band Legacy Survey) and the 90Prime camera at the Steward
+    Observatory 2.3m telescope (BASS, Beijing-Arizona Sky Survey). In
+    addition to these telescopes, the full survey also employs DECam
+    (DECaLS) at the CTIO 4m, which was the focus of our previous work
+    described in Papers I-III. This paper presents our final SMUDGes
+    catalog release, and we do not intend to reprocess data using DR10 or
+    any future release.
+
+    BASS observations were taken from 2015 November 12 to 2019 March 7 and
+    MzLS from 2015 November 19 to 2018 February 12.
+
+File Summary:
+--------------------------------------------------------------------------------
+ FileName    Lrecl  Records   Explanations
+--------------------------------------------------------------------------------
+ReadMe          80        .   This file
+table2.dat     402     7070   The complete catalog
+--------------------------------------------------------------------------------
+
+See also:
+ J/ApJ/638/725  : Fundamental manifold of spheroids (Zaritsky+, 2006)
+ J/A+A/486/85   : Abell 496 low-luminosity early-type gal. (Chilingarian+, 2008)
+ J/ApJ/772/82   : A catalog of globular cluster systems (Harris+, 2013)
+ J/ApJS/225/11  : Subaru-UDGs in the Coma cluster (Yagi+, 2016)
+ J/ApJ/842/133  : HI-bearing ultra-diffuse ALFALFA galaxies (Leisman+, 2017)
+ J/ApJS/240/1   : SMUDGes. I. 1st results in the Coma Cluster (Zaritsky+, 2019)
+ J/A+A/640/A106 : MUSE MATLAS-2019 spectral datacube (Mueller+, 2020)
+ J/MNRAS/493/87 : 1005 galaxies with z<0.09 sample (Trujillo+, 2020)
+ J/ApJ/923/257  : Ultra-diffuse gal. with spectroscopic obs. (Kadowaki+, 2021)
+ J/ApJS/257/60  : SMUDGes. II. Expanded survey & Stripe 82 (Zaritsky+, 2021)
+ J/ApJS/261/11  : SMUDGes. III. The Southern catalog (Zaritsky+, 2022)
+
+Byte-by-byte Description of file: table2.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units         Label       Explanations
+--------------------------------------------------------------------------------
+  1-   4 A4     ---           ---         [SMDG]
+  5-  18 A14    ---           SMDG        Galaxy Name (HHMMSSs+DDMMSS; J2000)
+ 20-  28 F9.5   deg           RAdeg       Right Ascension (J2000)
+ 30-  38 F9.5   deg           DEdeg       [-65.6/84.3] Declination (J2000)
+ 40-  45 F6.2   arcsec        Re          [5.3/125] Effective radius
+ 47-  52 F6.2   arcsec      E_Re          [-19.8/5.7]?=-99.99 1 sigma upper
+                                           uncertainty (angular) (1)
+ 54-  59 F6.2   arcsec        Re-bias     [/8.4]?=-99.99 bias
+                                           (angular; corrected Re=Re-Re-bias)
+ 61-  66 F6.2   arcsec      e_Re          [-7.1/12.2]?=-99.99 1 sigma lower
+                                           uncertainty (angular) (1)
+      68 I1     ---         f_Re          [0/1] 0=good; 1=extrapolated
+ 70-  73 F4.2   ---           b/a         [0.37/1] Minor to major axis ratio
+ 75-  80 F6.2   ---         E_b/a         [-0.3/0.1]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+ 82-  87 F6.2   ---           b/a-bias    [/0.1]?=-99.99 bias
+                                           (corrected b/a=b/a-b/a-bias)
+ 89-  94 F6.2   ---         e_b/a         [-0.1/0.3]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+      96 I1     ---         f_b/a         [0/1] 0=good; 1=extrapolated
+ 98- 101 F4.2   ---           n           [0.06/1.95] Sersic index
+103- 108 F6.2   ---         E_n           [-0.7/0.5]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+110- 115 F6.2   ---           n-bias      [/0.6]?=-99.99 bias
+                                           (corrected n=n-n-bias)
+117- 122 F6.2   ---         e_n           [-0.5/1.4]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+     124 I1     ---         f_n           [0/1] 0=good; 1=extrapolated
+126- 131 F6.2   deg           PA          [-90/90] Position angle of major axis
+                                           measured N to E
+133- 138 F6.2   deg         E_PA          [-98/90]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+140- 145 F6.2   deg           PA-bias     [0]?=-99.99 bias
+                                           (corrected PA=PA-PA-bias)
+147- 152 F6.2   deg         e_PA          [-12/58]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+     154 I1     ---         f_PA          [0/1] 0=good; 1=extrapolated
+156- 161 F6.2   mag/arcsec2   mu0g        [24/29.2]?=-99.99 Central surface
+                                           brightness in g, AB mag (2)
+163- 168 F6.2   mag/arcsec2 E_mu0g        [-1.6/-0.01]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+170- 175 F6.2   mag/arcsec2   mu0g-bias   [-0.4/0.8]?=-99.99 bias
+                                           (corrected mu0g=mu0g-mu0g-bias)
+177- 182 F6.2   mag/arcsec2 e_mu0g        [-0.6/1]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+     184 I1     ---         f_mu0g        [0/1] 0=good; 1=extrapolated
+186- 191 F6.2   mag/arcsec2   mu0r        [20.8/29]?=-99.99 Central surface
+                                           brightness in r, AB mag (2)
+193- 198 F6.2   mag/arcsec2 E_mu0r        [-1.5/0.07]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+200- 205 F6.2   mag/arcsec2   mu0r-bias   [-0.4/0.8]?=-99.99 bias
+                                           (corrected mu0r=mu0r-mu0r-bias)
+207- 212 F6.2   mag/arcsec2 e_mu0r        [-0.5/1.2]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+     214 I1     ---         f_mu0r        [0/1] 0=good; 1=extrapolated
+216- 221 F6.2   mag/arcsec2   mu0z        [2.8/28.2]?=-99.99 Central surface
+                                           brightness in z, AB mag (2)
+223- 228 F6.2   mag/arcsec2 E_mu0z        [-2.8/0.4]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+230- 235 F6.2   mag/arcsec2   mu0z-bias   [-0.3/2]?=-99.99 bias
+                                           (corrected mu0z=mu0z-mu0z-bias)
+237- 242 F6.2   mag/arcsec2 e_mu0z        [-1.2/0.7]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+     244 I1     ---         f_mu0z        [0/1] 0=good; 1=extrapolated
+246- 251 F6.2   mag           gmag        [15.4/22.5]?=-99.99 Total apparent
+                                           g mag, AB mag (2)
+253- 258 F6.2   mag         E_gmag        [-2.2/0.3]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+260- 265 F6.2   mag           gmag-bias   [-0.5/1.8]?=-99.99 bias
+                                           (corrected gmag=gmag-gmag-bias)
+267- 272 F6.2   mag         e_gmag        [-1.2/0.4]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+     274 I1     ---         f_gmag        [0/1] 0=good; 1=extrapolated
+276- 281 F6.2   mag           rmag        [12.6/22]?=-99.99 Total apparent
+                                           r mag, AB mag (2)
+283- 288 F6.2   mag         E_rmag        [-2.5/0.3]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+290- 295 F6.2   mag           rmag-bias   [-0.6/2]?=-99.99 bias
+                                           (corrected rmag=rmag-rmag-bias)
+297- 302 F6.2   mag         e_rmag        [-1.1/0.8]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+     304 I1     ---         f_rmag        [0/1] 0=good; 1=extrapolated
+306- 311 F6.2   mag           zmag        [-0.5/22.6]?=-99.99 Total apparent
+                                           z mag, AB mag (2)
+313- 318 F6.2   mag         E_zmag        [-3.5/0.6]?=-99.99 1 sigma upper
+                                           uncertainty (1)
+320- 325 F6.2   mag           zmag-bias   [-0.6/3]?=-99.99 bias
+                                           (corrected zmag=zmag-zmag-bias)
+327- 332 F6.2   mag         e_zmag        [-2.5/0.7]?=-99.99 1 sigma lower
+                                           uncertainty (1)
+     334 I1     ---         f_zmag        [0/1] 0=good; 1=extrapolated
+     336 I1     ---           VC          [0/2] Visual classification; 0=good;
+                                            1=rejected
+338- 341 F4.2   ---           SFD         [0/0.07] Optical depth at location
+                                           from Schlegel+ 1998ApJ...500..525S
+                                           maps for DECaLS filters
+343- 346 F4.2   mag           Ag          [0.01/0.3] Corresponding extinction
+                                           in g band
+348- 351 F4.2   mag           Ar          [0.01/0.2] Corresponding extinction
+                                           in r band
+353- 356 F4.2   mag           Az          [0.01/0.1] Corresponding extinction
+                                           in z band
+358- 363 F6.2   ---           comp        [-0.4/0.7]?=-99.99 Fractional
+                                           completeness
+     365 I1     ---         f_comp        [0/2] 0=good, 1=extrapolated
+                                           completness, 2=biases extrapolated
+367- 371 I5     km/s          cz          [13/16262]?=0 Estimated recessional
+                                           velocity, cz_est_
+373- 378 A6     ---         n_cz          Source of cz (3)
+380- 384 F5.1   km/s          sigma       [1.4/317]?=0 Estimate of internal
+                                           velocity dispersion
+386- 390 F5.2   [Msun]        MassTot     [6/12]?=0 Estimate of total mass
+392- 395 I4     km/s          sigEnv      [100/1730]?=0 Velocity dispersion of
+                                           associated environment
+397- 399 I3     ---           Nenv        [3/185]?=0 Number of galaxies in
+                                           associated environment
+401- 402 A2     ---           Ref         Data from DECaLS
+                                           ("D"; 5760 occurrences) or
+                                            MzLS/BASS ("MB"; 1310 occurrences)
+--------------------------------------------------------------------------------
+Note (1): Uncertainties bounds are to be applied relative to the
+    measured value but describe the bias-corrected uncertainty interval.
+Note (2): Magnitudes not extinction corrected.
+Note (3): Redshift source as follows:
+    z_est  = line-of-sight overdensity (442 occurrences)
+    specz  = spectroscopic (192 occurrences)
+    coma   = coma cluster member (54 occurrences)
+    fornax = fornax cluster member (190 occurrences)
+    virgo  = virgo cluster member (651 occurrences)
+    none   = 5541 occurrences
+--------------------------------------------------------------------------------
+
+History:
+    From electronic version of the journal
+
+References:
+    Zaritsky et al.   Paper I.     2019ApJS..240....1Z   Cat. J/ApJS/240/1
+    Zaritsky et al.   Paper II.    2021ApJS..257...60Z   Cat. J/ApJS/257/60
+    Zaritsky et al.   Paper III.   2022ApJS..261...11Z   Cat. J/ApJS/261/11
+
+================================================================================
+(End)                    Prepared by [AAS], Emmanuelle Perret [CDS]  09-Oct-2023
