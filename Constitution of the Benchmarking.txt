@@ -1,0 +1,27 @@
+Constitution of the Benchmarking Project
+
+Models being tested: Zoobot (diff architectures), AION, (and something else, perhaps GALNET?)
+
+Objectives: Can be slightly different for different models. For example AION can do reconstruction while Zoobot cannot
+	Main: To test the performance of ML models in LSB/Dwarf/faint regime. 
+	Common: We predict brightness, Reff, n, q. PA 
+		Stratify into bins of avg surface brightness vs n and plot the errors as heat map/grid
+		For DES sample further stratify by ETG+ featureless vs LTG 
+	TODO: Etg vs LTG vs other classification comparison ?
+		
+	
+
+Measures of success: MAE +- 1*sigma clipped std dev of MAE
+	
+
+Ideas: Keep the main network fixed. Use the embedding space. The idea is it has learned complex features and measures. So we use the embedding space --> 256-d neuron --> 4/5 Output we want like ( brightness, Reff, n, q. PA ) 
+
+
+
+Dataset:
+Split in 70:15:15 
+For training we do augmentation with 0, 90, 180, and 270 rotations. 
+For the smudges dataset we limit to R_e<10" (mainly because AION is 96x96)
+
+
+
