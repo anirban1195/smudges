@@ -20,7 +20,7 @@ Ideas: Keep the main network fixed. Use the embedding space. The idea is it has 
 
 Dataset:
 Split in 70:15:15 
-For training we do augmentation with 0, 90, 180, and 270 rotations. 
+For training we do augmentation:  random horizontal flip, a random vertical flip and a random rotation by 0, 90, 180 or 270°.
 For the smudges dataset we limit to R_e<10" (mainly because AION is 96x96)
 
 
