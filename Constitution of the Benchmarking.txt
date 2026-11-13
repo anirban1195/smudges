@@ -20,7 +20,8 @@ Ideas: Keep the main network fixed. Use the embedding space. The idea is it has 
 
 Dataset:
 Split in 70:15:15 
-For training we do augmentation:  random horizontal flip, a random vertical flip and a random rotation by 0, 90, 180 or 270°.
+For training we do augmentation:  random horizontal flip, a random vertical flip and a random rotation by 0, 90, 180 or 270°. More specifically 
+Transforms: view v = 4·flip + k, where flip is 0 or 1 (mirror left–right) and k is 0–3 (then rotate by k·90°). That gives 8 views: 4 rotations, each with and without a mirror. These are all the symmetries of a square.
 For the smudges dataset we limit to R_e<10" (mainly because AION is 96x96)
 
 
