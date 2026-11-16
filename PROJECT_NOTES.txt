@@ -63,6 +63,10 @@ missing band (1276 fully empty i-band) -> 3638 usable =
     recon MSE mean .439 / median .410 / p90 .764 (old x2: .415/.383/.731);
     median by mu0g tertile bright .288 / mid .388 / faint .602.
   (exp3 has no train/test split, so the split change below does not affect it.)
+  By the CURRENT splits (exp3_results_smudges_x2_full/recon_mse_by_split.csv),
+  recon MSE mean / median / p90:  train (2547) .442/.416/.764,
+  val (546) .429/.390/.758,  test (545) .437/.407/.767;
+  test median by mu0g tertile bright .300 / mid .383 / faint .582.
 
 CURRENT SPLITS (2026-11-16, later the same day) -- supersede the ones above.
 The exp1 numbers above (2541/520/577) are from the OLD splits; the result
