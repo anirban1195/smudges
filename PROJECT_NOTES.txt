@@ -128,6 +128,7 @@ exp1_structural_regression_smudges.py     : regression from embeddings
 exp3_reconstruction_stress_test_smudges.py: tokenizer encode/decode MSE inside
     a 2*Re disc (aperture scales with Re in image pixels)
 viz_binning_examples_smudges.py           : raw vs binned cutout pictures
+    (removed 2026-11-16; in git history)
 Flags: --bin-factor {1,2,3,4,5}  --max-reff <arcsec> (default 6.0)
        exp3 only: --aperture-re (default 2)  --max-aperture-arcsec (default none)
        --bin-mode {sum,mean}     (default sum in exp1 and exp3)
@@ -277,10 +278,12 @@ exp1_results_smudges_x2_splits/   logs/exp1_x2_splits.log
 exp1_results_smudges_x2_splits_aug/  logs/exp1_x2_splits_aug.log  (--augment)
 make_splits.py                    regenerates catalog_folder/*_reff10.dat
 exp3_results_smudges_x2_full/     logs/exp3_x2_full.log
-OLD 2600-source runs, superseded:
-exp1_results_smudges_reff10_x2/   metrics.csv, predictions.csv,
-                                  heatmaps.png, embeddings_sum_x2.npz
-exp3_results_smudges_reff10_x2/   2*Re-aperture run (adopted): cache csv + plots
-logs/exp{1,3}_reff10_x2.log       stdout of the runs above
-git: local repo, branch main; last commit adds --bin-factor/--max-reff
-(not pushed).  This file and logs/ are untracked.
+smudges_ls_dr10_512_binned_sum_x2.npz  x2 binned cube cache (rebuilds from the H5)
+Cleanup 2026-11-16: deleted the old 2600-source x2 runs + logs (numbers
+kept in section 0/3), failed_smudges_ls_dr10.csv (stale Oct-8 rate-limit
+failures; all 7070 now downloaded), binning_examples.png, re_histogram.png.
+Removed from git (recoverable from history): viz_binning_examples_smudges.py,
+plot_re_hist.py, download_sample_code.py, catalog_folder/table2.dat.gz
+(identical to table2.dat).
+git: local repo, branch main, not pushed. logs/, CLAUDE.md and the two
+*_BASELINE_INSTRUCTIONS.md files are untracked.
