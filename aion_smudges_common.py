@@ -311,7 +311,9 @@ class MLPHead(nn.Module):
 # Regression training
 # ---------------------------------------------------------------------------
 def train_regression_head(X_train, y_train, X_val, y_val, device, hidden=0,
-                           epochs=500, lr=5e-4, patience=100):
+                           epochs=500, lr=5e-4, patience=100, X_test=None):
+    """Early-stops on (X_val, y_val). Returns predictions for X_test if
+    given, otherwise for X_val."""
     in_dim, out_dim = X_train.shape[1], y_train.shape[1]
 
     x_mean, x_std = X_train.mean(0, keepdims=True), X_train.std(0, keepdims=True) + 1e-8
@@ -347,6 +349,8 @@ def train_regression_head(X_train, y_train, X_val, y_val, device, hidden=0,
 
     model.load_state_dict(best_state)
     model.eval()
+    if X_test is not None:
+        Xva = torch.tensor((X_test - x_mean) / x_std, dtype=torch.float32, device=device)
     with torch.no_grad():
         val_pred = model(Xva).cpu().numpy() * y_std + y_mean
     return model, val_pred

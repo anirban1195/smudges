@@ -10,7 +10,10 @@ embeddings.
      96x96 (--bin-factor 1); drop sources with an empty / mostly-zero band
      (same sources dropped for every bin factor).
   2. Extract (or load cached) frozen AION-1 embeddings.
-  3. 70/30 train/test split.
+  3. Fixed train/val/test split from catalog_folder/{train,val,test}_reff10.dat
+     (70/15/15, seed 42); heads early-stop on val, metrics are on test.
+     --augment adds the 7 flip/90-deg-rotation copies of each train image
+     (embedded separately) as extra train rows; val/test are not augmented.
   4. Train BOTH a linear head and a 2-layer(256) MLP head to predict
      [Re_corr (arcsec), n_corr, mu0g_corr, b/a_corr] from the embedding.
   5. Report Bias / RMSE / R^2 / NMAD / MAE per target, per head, next to the
@@ -27,8 +30,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.model_selection import train_test_split
-
 from aion_smudges_common import (
     H5_DEFAULT, TABLE2_DEFAULT, load_sample, get_or_extract_embeddings,
     train_regression_head, regression_metrics_table, plot_metric_heatmaps,
@@ -57,10 +58,10 @@ def parse_args():
     p.add_argument("--model-path", default="/home/duttaa/aion/aion-base")
     p.add_argument("--out-dir", default=None,
                     help="Default: ./exp1_results_smudges_x<bin-factor>")
-    p.add_argument("--bin-factor", type=int, default=5, choices=[1, 2, 3, 4, 5],
+    p.add_argument("--bin-factor", type=int, default=2, choices=[1, 2, 3, 4, 5],
                     help="5 = 480 crop binned 5x5 (1.31 arcsec/px); 1 = unbinned "
                          "central 96x96 (25 arcsec, 0.262 arcsec/px).")
-    p.add_argument("--max-reff", type=float, default=6.0,
+    p.add_argument("--max-reff", type=float, default=10.0,
                     help="Keep only sources with Re_corr <= this (arcsec).")
     p.add_argument("--bin-mode", choices=["sum", "mean"], default="sum",
                     help="How the 5x5 bins are combined (sum conserves flux; "
@@ -68,8 +69,12 @@ def parse_args():
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--n-bins", type=int, default=3)
     p.add_argument("--epochs", type=int, default=500)
-    p.add_argument("--test-size", type=float, default=0.3)
-    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--split-dir", default="catalog_folder",
+                    help="Holds train/val/test_reff10.dat (first column = SMDG name).")
+    p.add_argument("--augment", action="store_true",
+                    help="Train-time augmentation: add the 7 non-identity flip/90-deg "
+                         "rotation copies of each TRAIN image (embedded separately, "
+                         "same targets). Val and test are not augmented.")
     p.add_argument("--force-recompute", action="store_true",
                     help="Rebuild the binned cubes and the embeddings.")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -98,11 +103,39 @@ def main():
         force_recompute=args.force_recompute,
     )
 
-    idx_train, idx_test = train_test_split(
-        np.arange(len(df)), test_size=args.test_size, random_state=args.seed
-    )
-    X_train, X_test = embeddings[idx_train], embeddings[idx_test]
-    y_train, y_test = y[idx_train], y[idx_test]
+    split = pd.Series("", index=df.index)
+    for s in ("train", "val", "test"):
+        with open(Path(args.split_dir) / f"{s}_reff10.dat") as f:
+            split_names = {line.split()[0] for line in f if line.strip()}
+        split[df["name"].isin(split_names)] = s
+        print(f"  {s}: {len(split_names)} in split file, "
+              f"{(split == s).sum()} in usable sample")
+    print(f"  {(split == '').sum()} usable sources are in no split file (ignored)")
+    idx_train, idx_val, idx_test = (np.flatnonzero(split == s) for s in ("train", "val", "test"))
+    X_train, X_val, X_test = embeddings[idx_train], embeddings[idx_val], embeddings[idx_test]
+    y_train, y_val, y_test = y[idx_train], y[idx_val], y[idx_test]
+
+    if args.augment:
+        # dihedral group of the square: k quarter-turns, optionally then flipped
+        # left-right. (k=0, no flip) is the original image, already embedded.
+        # 96 is even, so these map the image centre onto itself exactly.
+        variants = [(k, flip) for flip in (False, True) for k in range(4)][1:]
+        train_names = df["name"].to_numpy()[idx_train]
+        aug_flux, aug_names = [], []
+        for k, flip in variants:
+            f = np.rot90(fluxes[idx_train], k=k, axes=(-2, -1))
+            aug_flux.append(np.ascontiguousarray(f[..., ::-1] if flip else f))
+            aug_names.append([f"{n}_r{k}{'f' if flip else ''}" for n in train_names])
+        aug_emb = get_or_extract_embeddings(
+            np.concatenate(aug_flux), np.concatenate(aug_names),
+            out_dir / f"embeddings_{args.bin_mode}_x{args.bin_factor}_train_aug7.npz",
+            args.model_path, args.device, batch_size=args.batch_size,
+            force_recompute=args.force_recompute,
+        )
+        X_train = np.concatenate([X_train, aug_emb])
+        y_train = np.concatenate([y_train] + [y_train] * len(variants))
+        print(f"  augmented train: {len(idx_train)} images x {1 + len(variants)} "
+              f"orientations = {len(X_train)} rows")
 
     all_metrics = []
     per_object = df.iloc[idx_test].copy().reset_index(drop=True)
@@ -110,10 +143,10 @@ def main():
 
     for head_label, hidden in [("linear", 0), ("mlp2_256", 256)]:
         print(f"training head={head_label} (hidden={hidden}) "
-              f"on {len(X_train)} train / {len(X_test)} test ...")
+              f"on {len(X_train)} train / {len(X_val)} val / {len(X_test)} test ...")
         _, y_pred = train_regression_head(
-            X_train, y_train, X_test, y_test, args.device,
-            hidden=hidden, epochs=args.epochs,
+            X_train, y_train, X_val, y_val, args.device,
+            hidden=hidden, epochs=args.epochs, X_test=X_test,
         )
         metrics_df = regression_metrics_table(y_test, y_pred, TARGET_NAMES)
         metrics_df["catalog_sigma"] = catalog_sigma

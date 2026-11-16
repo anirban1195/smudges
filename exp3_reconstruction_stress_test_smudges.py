@@ -42,10 +42,10 @@ def parse_args():
     p.add_argument("--h5-path", default=H5_DEFAULT)
     p.add_argument("--out-dir", default=None,
                     help="Default: ./exp3_results_smudges_x<bin-factor>")
-    p.add_argument("--bin-factor", type=int, default=5, choices=[1, 2, 3, 4, 5],
+    p.add_argument("--bin-factor", type=int, default=2, choices=[1, 2, 3, 4, 5],
                     help="5 = 480 crop binned 5x5 (1.31 arcsec/px); 1 = unbinned "
                          "central 96x96 (25 arcsec, 0.262 arcsec/px).")
-    p.add_argument("--max-reff", type=float, default=6.0,
+    p.add_argument("--max-reff", type=float, default=10.0,
                     help="Keep only sources with Re_corr <= this (arcsec).")
     p.add_argument("--bin-mode", choices=["sum", "mean"], default="sum")
     p.add_argument("--aperture-re", type=float, default=2.0,
