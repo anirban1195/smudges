@@ -11,7 +11,7 @@ Objectives: Can be slightly different for different models. For example AION can
 		
 	
 
-Measures of success: MAE +- 1*sigma clipped std dev of MAE
+Measures of success: NAMD +- 1*sigma  std dev of NAMD
 	
 
 Ideas: Keep the main network fixed. Use the embedding space. The idea is it has learned complex features and measures. So we use the embedding space --> 256-d neuron --> 4/5 Output we want like ( brightness, Reff, n, q. PA ) 
@@ -24,5 +24,7 @@ For training, we do augmentation for ALL samples in training.  More specifically
 Transforms: view v = 4·flip + k, where flip is 0 or 1 (mirror left–right) and k is 0–3 (then rotate by k·90°). That gives 8 views: 4 rotations, each with and without a mirror. These are all the symmetries of a square.
 For the smudges dataset we limit to R_e<10" (mainly because AION is 96x96)
 
-
-
+Description of LSBG Dataset:
+Holds Legacy Survey DR10 cutouts of 59,819 DES LSB galaxies. The main dataset is fluxes, a float32 array of shape (59819, 4, 256, 256): bands g, r, i, z, each 256 × 256 pixels at 0.262″/px, with zero point 22.5.
+Three 1-D datasets sit alongside it, one entry per galaxy: ra and dec (degrees), and label (int64, 1 for every galaxy, so it carries no information). The file attributes record bands = g, r, i, z, image_size = 256, pixel_scale = 0.262 and survey = "Legacy Survey ls-dr10".
+The LSBG project uses only 9,758 of these galaxies, taking bands g, r, i and the central 96 × 96 pixels (for AION. How do we make the cutout size consistent across models ? Can we? ).
